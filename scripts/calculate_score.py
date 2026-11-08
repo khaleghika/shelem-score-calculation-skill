@@ -24,13 +24,15 @@ THOUSAND_POINT_RULE = 1000
 HEAVY_FAILURE_AT = 85
 MIN_BID = 100
 BID_STEP = 5
+HAKEM_BURIED_MINIMUM = 5
+MAX_DEFENDING_POINTS = HAND_TOTAL - HAKEM_BURIED_MINIMUM
 SHELEM_BID = 165
 SHELEM_SUCCESS = 330
 SHELEM_FAILURE = -330
 
 LEGAL_BIDS = frozenset(range(MIN_BID, SHELEM_BID + 1, BID_STEP))
-CONTRACTS = ("normal", "shelem", "sare-shelem")
-SHELEM_CONTRACTS = frozenset({"shelem", "sare-shelem"})
+CONTRACTS = ("normal", "shelem", "sar-shelem")
+SHELEM_CONTRACTS = frozenset({"shelem", "sar-shelem"})
 ALLOWED_FIELDS = frozenset(
     {
         "team1_score",
@@ -131,7 +133,7 @@ def explain(result: Mapping[str, object]) -> str:
 
     if contract == "shelem":
         contract_text = "Shelem (165)"
-    elif contract == "sare-shelem":
+    elif contract == "sar-shelem":
         contract_text = "sar-shelem (165, scored as Shelem)"
     else:
         contract_text = f"a normal bid of {bid}"
@@ -292,21 +294,20 @@ def _bid(payload: Mapping[str, object]) -> int:
 
 def _contract(payload: Mapping[str, object], bid: int) -> str:
     if "contract" not in payload:
-        if bid == SHELEM_BID:
-            raise ScoreInputError(
-                'Bid 165 needs contract set to "shelem", "sare-shelem", '
-                "or \"normal\". Shelem failures and a normal bid of 165 are "
-                "scored differently, so the contract is not assumed.",
-                field="contract",
-            )
-        return "normal"
+        return "shelem" if bid == SHELEM_BID else "normal"
 
     contract = payload["contract"]
     if type(contract) is not str:
         raise ScoreInputError("contract must be a string.", field="contract")
     if contract not in CONTRACTS:
         raise ScoreInputError(
-            'contract must be "normal", "shelem", or "sare-shelem".',
+            'contract must be "normal", "shelem", or "sar-shelem".',
+            field="contract",
+        )
+    if bid == SHELEM_BID and contract == "normal":
+        raise ScoreInputError(
+            'Bid 165 is Shelem. Use contract "shelem" or "sar-shelem", '
+            'not "normal".',
             field="contract",
         )
     if contract in SHELEM_CONTRACTS and bid != SHELEM_BID:
@@ -377,9 +378,21 @@ def _outcome_points(payload: Mapping[str, object], bid: int) -> Optional[int]:
 
 
 def _validate_points(value: int, field: str) -> None:
-    if value < 0 or value > HAND_TOTAL:
+    if field == "defending_points":
+        low, high = 0, MAX_DEFENDING_POINTS
+        extra = (
+            f" The Hakem buries at least {HAKEM_BURIED_MINIMUM} points before "
+            "play, so the defenders cannot capture 165."
+        )
+    else:
+        low, high = HAKEM_BURIED_MINIMUM, HAND_TOTAL
+        extra = (
+            f" The Hakem buries at least {HAKEM_BURIED_MINIMUM} points before "
+            "play, so the Hakem cannot capture 0."
+        )
+    if value < low or value > high:
         raise ScoreInputError(
-            f"{field} must be from 0 through {HAND_TOTAL}.",
+            f"{field} must be from {low} through {high}.{extra}",
             field=field,
         )
     if value % BID_STEP != 0:
@@ -493,13 +506,8 @@ def _self_check() -> int:
         ({"bid": 165, "contract": "shelem", "defending_points": 0}, 330, 0, "shelem_made"),
         ({"bid": 165, "contract": "shelem", "defending_points": 10}, -330, 10, "shelem_failed"),
         ({"bid": 165, "contract": "shelem", "defending_points": 85}, -330, 85, "shelem_failed"),
-        ({"bid": 165, "contract": "shelem", "defending_points": 165}, -330, 165, "shelem_failed"),
-        (
-            {"bid": 165, "contract": "normal", "defending_points": 10},
-            -165,
-            10,
-            "bid_failed",
-        ),
+        ({"bid": 165, "contract": "shelem", "defending_points": 160}, -330, 160, "shelem_failed"),
+        ({"bid": 165, "defending_points": 10}, -330, 10, "shelem_failed"),
         (
             {
                 "team1_score": 1100,
@@ -558,8 +566,26 @@ def _self_check() -> int:
                     },
                 }
             )
+    rejects = [
+        {"bid": 165, "contract": "shelem", "defending_points": 165},
+        {"bid": 165, "contract": "normal", "defending_points": 10},
+        {"bid": 140, "declarer_points": 0},
+    ]
+    for payload in rejects:
+        hand = {
+            "team1_score": 0,
+            "team2_score": 0,
+            "bidding_team": 1,
+        }
+        hand.update(payload)
+        try:
+            calculate(hand)
+        except ScoreInputError:
+            continue
+        failures.append({"payload": hand, "error": "expected rejection"})
+    checked = len(cases) + len(rejects)
     ok = not failures
-    _emit({"ok": ok, "checked": len(cases), "failures": failures})
+    _emit({"ok": ok, "checked": checked, "failures": failures})
     return 0 if ok else 2
 
 

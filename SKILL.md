@@ -51,12 +51,12 @@ Reply in the user's language. For the reply shape, see [assets/reply-template.md
 | "20", "۳۰", "40", "50" as a bid | `bid` 120, 130, 140, 150 — not 20/30/40/50 |
 | Mok / مک | `outcome: "mok"` (declarer captured exactly the bid; this is a **made** bid) |
 | Sweep, or "shelem" **after a numeric bid** | `outcome: "sweep"` (`D = 0`), `contract` omitted / `normal` |
-| "شلم خوندم" / "shelem" as the bid itself | `bid: 165`, `contract: "shelem"` |
-| سرشلم / sar-shelem / sare-shelem | `bid: 165`, `contract: "sare-shelem"` only if the user said so |
+| "شلم خوندم" / "shelem" as the bid itself | `bid: 165` (`contract` omitted or `"shelem"`) |
+| سرشلم / sar-shelem | `bid: 165`, `contract: "sar-shelem"` only if the user said so |
 | Hakem / حاکم / "we bid" | `hakem_team` or `bidding_team`: `1` or `2` |
 
-Legal bids are only 100, 105, …, 165. A bid of 165 **must** set `contract` to
-`shelem`, `sare-shelem`, or `normal`.
+Legal bids are only 100, 105, …, 165. Bid 165 **is** Shelem; do not send
+`contract: "normal"`. Send `sar-shelem` only when the user said so.
 
 ## JSON fields
 
@@ -84,10 +84,14 @@ More examples: [assets/hand.example.json](assets/hand.example.json).
 ## Gotchas
 
 - **"Shelem" has two meanings.** After a numeric bid it means a sweep (defenders
-  took 0; award `2 × bid`). Alone, it is the 165 Shelem contract (+330 / −330).
-  A failed Shelem is always −330, even when defenders captured 85 or more.
-  Never send `contract: "shelem"` when `bid < 165`.
+  took 0; award `2 × bid`). Alone, or as a bid of 165, it is the Shelem
+  contract (+330 / −330). There is no normal 165. A failed Shelem is always
+  −330, even when defenders captured 85 or more. Never send
+  `contract: "shelem"` when `bid < 165`.
 - **Mok is success.** Do not treat it as a failed bid.
+- **Defenders cannot capture 165.** The Hakem buries at least 5 points before
+  play, so `defending_points` is 0–160. If the user reports 165 for the
+  defenders, ask; do not send it to the script.
 - **The 5–40 / 45–80 band table is wrong.** Compare the Hakem's captured points
   with the bid. Sweep (`D = 0`) doubles a normal award; `D >= 85` on a failed
   normal bid doubles the loss.
@@ -95,8 +99,8 @@ More examples: [assets/hand.example.json](assets/hand.example.json).
   if the bid is made, that team is awarded 0 (its cumulative score is not reset).
 - **Do not invent a tie-break.** If the script errors because a team is already
   at 1165, stop.
-- **Ask; do not guess.** Missing Hakem, missing points, or a 165 without a
-  contract is a question for the user.
+- **Ask; do not guess.** Missing Hakem or missing points is a question for
+  the user.
 
 ## When to read more
 

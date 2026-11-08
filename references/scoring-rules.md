@@ -17,6 +17,8 @@ winner the rules do not define. All arithmetic is integer arithmetic.
 | --- | ---: |
 | Points in one hand | 165 |
 | Legal bids | 100, 105, …, 165 |
+| Max defending points (`D`) | 160 |
+| Hakem buried minimum | 5 |
 | Winning threshold | 1165 (not a cap) |
 | 1000-point rule | defending team at 1000+ scores 0 if the bid is made |
 | Heavy failure | defending points ≥ 85 |
@@ -33,8 +35,8 @@ Negative cumulative scores are allowed. A zero award does not reset a total.
 | `bid_made` | normal | `D > 0` and `C >= B` | `+B` |
 | `bid_failed` | normal | `C < B` and `D < 85` | `−B` |
 | `heavy_failure` | normal | `C < B` and `D >= 85` | `−2 × B` |
-| `shelem_made` | shelem or sare-shelem | `D = 0` | +330 |
-| `shelem_failed` | shelem or sare-shelem | `D` from 5 through 165 | −330 |
+| `shelem_made` | shelem or sar-shelem | `D = 0` | +330 |
+| `shelem_failed` | shelem or sar-shelem | `D` from 5 through 160 | −330 |
 
 Success is only `sweep_double`, `bid_made`, and `shelem_made`. Mok
 (`C = B`) is `bid_made`, not a failure.
@@ -46,12 +48,12 @@ Mok at 120 has `D = 45` and is a made bid.
 ## Contract
 
 - Bid below 165: omit `contract` (it becomes `normal`). `shelem` /
-  `sare-shelem` on any other bid is rejected.
-- Bid 165: `contract` is required: `shelem`, `sare-shelem`, or `normal`.
-  A successful 165 is +330 either way (it is a sweep). Failures differ:
-  Shelem is always −330; a normal 165 is −165, or −330 when `D >= 85`.
-- `sare-shelem` uses the Shelem table. The engine does not check that a
-  Shelem bid came first.
+  `sar-shelem` on any other bid is rejected.
+- Bid 165 **is** Shelem. There is no normal 165. Omit `contract` or set
+  `shelem`; both score +330 on `D = 0` and −330 on any captured defense.
+  `contract: "normal"` on a bid of 165 is rejected.
+- `sar-shelem` uses the Shelem table and is set only when the user said
+  so. The engine does not check that a Shelem bid came first.
 
 ## Resolving `D`
 
@@ -60,7 +62,10 @@ Mok at 120 has `D = 45` and is a made bid.
 3. Else `defending_points`, or `165 - declarer_points`
 4. If more than one of these is present they must agree, and the two point
    fields must sum to 165
-5. `D` must be a multiple of 5 from 0 through 165
+5. `D` must be a multiple of 5 from 0 through 160. The Hakem buries at
+   least 5 points before play, so the defenders cannot capture 165 and
+   the Hakem cannot capture 0. `D = 165` (or `declarer_points = 0`) is
+   rejected.
 
 ## 1000-point rule
 
@@ -89,10 +94,9 @@ is rejected.
 | Mok at 140 | +140 | +25 |
 | Sweep at bid 130 | +260 | 0 |
 | Shelem, D = 0 | +330 | 0 |
-| Shelem, D = 5 through 165 | −330 | +D |
+| Shelem, D = 5 through 160 | −330 | +D |
+| Bid 165 with no contract, same D | same as Shelem | same as Shelem |
 | sar-shelem, same D | same as Shelem | same as Shelem |
-| Normal bid 165, D = 10 | −165 | +10 |
-| Normal bid 165, D = 85 | −330 | +85 |
 | Defenders on 1100, opposing bid 140, D = 10 | Hakem +140 | 0 |
 | Defenders on 1100, opposing bid 140, D = 35 | Hakem −140 | +35 |
 | Hakem on 1100, bid 140, D = 25 | +140 | +25 |
